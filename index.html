@@ -67,9 +67,9 @@ tr:hover td{background:#fafbff}
 </div>
 </div>
 <script>
-const MAP0={"online.sales36@rizkalla-co.com": "EMAD MOHAMED", "emad mohamed": "EMAD MOHAMED", "online.sales05@rizkalla-co.com": "ZAHRA SAYED", "zahra sayed": "ZAHRA SAYED", "doaa lotfy": "Doaa Lotfy", "bassant sameh": "bassant sameh", "ahmed zaki": "Ahmed Zaki", "online sales37": "لا يوجد موظف", "online.sales39@rizkalla-co.com": "Doaa Lotfy", "online.sales11@rizkalla-co.com": "bassant sameh", "online.sales43@rizkalla-co.com": "لا يوجد موظف", "online.sales02@rizkalla-co.com": "Nada Mohamed", "salma arafat": "لا يوجد موظف", "alyaa fawzy": "لا يوجد موظف", "ghada shaban": "لا يوجد موظف", "ammar yasser": "لا يوجد موظف", "blank": "لا يوجد موظف", "sara yousef": "Nada Mohamed"};
+const MAP0={"online.sales36@rizkalla-co.com": "EMAD MOHAMED", "emad mohamed": "EMAD MOHAMED", "online.sales05@rizkalla-co.com": "ZAHRA SAYED", "zahra sayed": "ZAHRA SAYED", "doaa lotfy": "Doaa Lotfy", "bassant sameh": "bassant sameh", "ahmed zaki": "Ahmed Zaki", "online sales37": "لا يوجد موظف", "online.sales39@rizkalla-co.com": "Doaa Lotfy", "online.sales11@rizkalla-co.com": "bassant sameh", "online.sales43@rizkalla-co.com": "لا يوجد موظف", "online.sales02@rizkalla-co.com": "Nada Mohamed", "salma arafat": "لا يوجد موظف", "alyaa fawzy": "لا يوجد موظف", "ghada shaban": "لا يوجد موظف", "ammar yasser": "لا يوجد موظف", "blank": "لا يوجد موظف", "sara yousef": "Nada Mohamed", "nada mohammed": "Nada Mohamed"};
 const NOEMP='لا يوجد موظف';
-let MAP={...MAP0}, convFile=null, formFile=null, R=[], asof='', groups=[], tabs=[], cur='Overview';
+let MAP={...MAP0},NAMES={}, convFile=null, formFile=null, R=[], asof='', groups=[], tabs=[], cur='Overview';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nk=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -107,13 +107,14 @@ function phoneKeys(v){
 
 /* ---------- build ---------- */
 function build(){
+ NAMES={};Object.values(MAP).forEach(v=>{if(v!==NOEMP)NAMES[v.toLowerCase()]=v});
  const conv=new Map();
  for(const r of convFile.rows){const last=dstr(r.lastmessagedate);
   for(const k of phoneKeys(r.mobilenumber)){const o=conv.get(k);if(!o||last>o.last)conv.set(k,{sess:String(r.session||'').trim(),stat:String(r.status||'').trim(),last,am:+r.agentmessagescount||0,bm:+r.botmessagescount||0})}}
  asof=[...conv.values()].reduce((m,x)=>x.last>m?x.last:m,'');
  R=formFile.rows.filter(r=>r.installmentid!=null).map(r=>{
-  const mail=String(r.agentmail??'').trim();
-  const emp=!mail?'Unassigned':(MAP[mail.toLowerCase()]||NOEMP);
+  const mail=String(r.agentmail??'').replace(/\s+/g,' ').trim();
+  const emp=!mail?'Unassigned':(MAP[mail.toLowerCase()]||NAMES[mail.toLowerCase()]||NOEMP);
   const k1=phoneKeys(r.custmobile1),k2=phoneKeys(r.custmobile2);
   let c=null,via='';
   for(const k of k1)if(conv.has(k)){c=conv.get(k);via='Mobile 1';break}
@@ -122,13 +123,13 @@ function build(){
   const o={id:String(r.installmentid),name:String(r.custfullname??''),m1:fixPh(r.custmobile1),m2:(m2&&m2!=='0')?fixPh(r.custmobile2):'',
    req:String(r.creditrequirement??'').split('\n').map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean),stamp:dstr(r.crstamp).slice(0,10),mail,emp,msg:!!c};
   if(c)Object.assign(o,c,{via});return o});
- groups=[...new Set(R.map(r=>r.emp))].filter(g=>g!=='Unassigned');
+ groups=[...new Set([...R.map(r=>r.emp),...Object.values(MAP)])].filter(g=>g!=='Unassigned');
  const ORDER=['EMAD MOHAMED','ZAHRA SAYED','Doaa Lotfy','bassant sameh','Ahmed Zaki'];
  groups.sort((a,b)=>{if(a===NOEMP)return 1;if(b===NOEMP)return -1;const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)||a.localeCompare(b)});
  tabs=['Overview',...groups,'Unassigned'];
  const h=decodeURIComponent(location.hash.slice(1));cur=tabs.includes(h)?h:'Overview';
  $('fr').innerHTML='<option value="">All requirements</option>'+[...new Set(R.flatMap(r=>r.req))].sort().map(x=>`<option>${esc(x)}</option>`).join('')+'<option value="__none">Not specified</option>';
- $('sub').textContent=`${R.length.toLocaleString()} active forms matched against ${conv.size.toLocaleString()} WhatsApp customers · latest customer message in the export: ${asof.slice(0,16)}`;
+ $('sub').textContent=`${R.length.toLocaleString()} active forms matched against ${conv.size.toLocaleString()} WhatsApp customers · latest customer message in the export: ${asof.slice(0,16)} · mapping: ${Object.keys(MAP).length} mails, ${[...new Set(Object.values(MAP))].filter(x=>x!==NOEMP).length} employees (v2026-11-18)`;
  $('drop').classList.add('hide');$('dash').classList.remove('hide');$('reload').classList.remove('hide');
  render()}
 function fixPh(v){if(v==null)return '';if(typeof v==='number'){let s=String(Math.round(v));return s.length===10?'0'+s:s}return String(v).trim()}
@@ -184,5 +185,6 @@ function render(){drawTabs();const v=$('view');
  if(cur==='Unassigned'){const nn=all.filter(r=>!r.msg).length;
   v.innerHTML=`<div class="note">These forms have no Agent.Mail and still need to be distributed. Only forms where the customer messaged are listed (${nn} further unassigned forms have no customer message).</div><div class="card"><h2>Unassigned forms · customer messaged <small>${M.length} shown</small></h2>${mTable(M,false)}</div>`;return}
  const N=filt(all.filter(r=>!r.msg));
- v.innerHTML=`<div class="card"><h2>Customer messaged on WhatsApp – follow up now <small>${M.length} forms</small></h2>${mTable(M,cur===NOEMP)}</div><div class="card"><h2>Customer has not messaged <small>${N.length} forms</small></h2>${nTable(N)}</div>`}
+ let um='';if(cur===NOEMP){const c={};all.forEach(r=>{if(r.mail&&!MAP[r.mail.toLowerCase()])c[r.mail]=(c[r.mail]||0)+1});const e=Object.entries(c);if(e.length)um=`<div class="note">Agent.Mail values <b>not found in the mapping</b> (add them to the mapping sheet if they belong to an employee): ${e.map(([k,n])=>`<b>${esc(k)}</b> (${n})`).join(' · ')}</div>`}
+ v.innerHTML=um+`<div class="card"><h2>Customer messaged on WhatsApp – follow up now <small>${M.length} forms</small></h2>${mTable(M,cur===NOEMP)}</div><div class="card"><h2>Customer has not messaged <small>${N.length} forms</small></h2>${nTable(N)}</div>`}
 </script></body></html>
